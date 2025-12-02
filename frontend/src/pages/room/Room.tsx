@@ -1,9 +1,10 @@
 import { useRef } from "react";
 import YouTube from "react-youtube";
-import useRoom from "../../state/roomContext/useRoom";
+import { useRoom } from "@/state";
+import { useNavigate } from "react-router";
 
 export default function Room() {
-  const { messages, sendMessage } = useRoom();
+  const { messages, sendMessage, leaveRoom, currentRoom } = useRoom();
 
   const opts = {
     height: "390",
@@ -12,6 +13,12 @@ export default function Room() {
       autoplay: 1,
     },
   };
+
+  const navigate = useNavigate();
+
+  if (!currentRoom) {
+    navigate("/");
+  }
 
   const playerRef = useRef<YouTube>(null);
 
@@ -33,6 +40,13 @@ export default function Room() {
             }}
           >
             Pause
+          </button>
+          <button
+            onClick={() => {
+              leaveRoom();
+            }}
+          >
+            Leave
           </button>
         </div>
       </div>

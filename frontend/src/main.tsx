@@ -1,8 +1,7 @@
 import { createRoot } from "react-dom/client";
-import "./index.css";
-import Router from "./router/Router.tsx";
-import SocketContextProvider from "./state/socketContext/SocketContextProvider.tsx";
-import { RoomContextProvider } from "./state/roomContext/index.ts";
+import "@/index.css";
+import Router from "@/router/Router";
+import { SocketContextProvider, RoomContextProvider } from "@/state";
 
 createRoot(document.getElementById("root")!).render(<SocketContextProvider>
     <RoomContextProvider>

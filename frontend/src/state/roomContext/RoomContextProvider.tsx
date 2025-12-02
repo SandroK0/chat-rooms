@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import type { ReactNode } from "react";
 import axios from "axios";
 import { RoomContext, type Message, type Rooms, type Error } from "./roomContext";
-import useSocket from "../socketContext/useSocket";
-import { config } from "../../config";
+import { useSocket } from "@/state/socketContext";
+import { config } from "@/config";
 
 type RoomContextProviderProps = {
   children: ReactNode;
@@ -17,6 +17,14 @@ export default function RoomContextProvider({ children }: RoomContextProviderPro
   const [error, setError] = useState<Error | null>(null);
   
   const { ws } = useSocket(); // Uses the socket from SocketContext
+  
+  const resetRoomState = useCallback(() => {
+    setCurrentRoom(null);
+    setMessages([]);
+    setUsernameState(null);
+    setError(null);
+    localStorage.removeItem("token");
+  }, []);
 
   // Listen for incoming messages and handle reconnection
   useEffect(() => {
@@ -42,7 +50,11 @@ export default function RoomContextProvider({ children }: RoomContextProviderPro
             localStorage.setItem("token", eventData.data.token);
             setCurrentRoom(eventData.data.roomName);
             break;
+          case "room_left":
+            resetRoomState();
+            break;
           case "room_reconnected":
+            console.log("setting current room on reconnect:", eventData.data.roomName);
             setCurrentRoom(eventData.data.roomName);
             setUsernameState(eventData.data.username);
             break;
@@ -52,6 +64,9 @@ export default function RoomContextProvider({ children }: RoomContextProviderPro
               author: eventData.data.username,
               body: eventData.data.body
             }]);
+            break;
+          case "invalid_token":
+            resetRoomState();
             break;
           case "error":
             setError(eventData.data);

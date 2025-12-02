@@ -1,6 +1,6 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import useRoom from "../../state/roomContext/useRoom";
+import { useRoom } from "@/state";
 
 function Home() {
   const navigate = useNavigate();
@@ -15,7 +15,7 @@ function Home() {
     setUsername,
   } = useRoom();
   
-  const [createRoomName, setCreateRoomName] = useState<string>("");
+  const [createRoomName, setCreateRoomName] = useState<string>("test_room");
 
   const usernameInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -38,6 +38,11 @@ function Home() {
     }
   };
 
+
+  if (currentRoom) {
+    navigate("/room");
+  }
+
   return (
     <div className="flex gap-10 flex-col items-center justify-center relative w-screen min-h-screen ">
       {error && (
@@ -50,7 +55,7 @@ function Home() {
           placeholder="Enter username"
           className="focus:ring-0 outline-0 border rounded p-2"
           ref={usernameInputRef}
-          defaultValue={username || ""}
+          defaultValue={username || "sandro"}
         />
       </div>
       <div className="mt-40 flex gap-10 ">

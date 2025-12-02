@@ -1,6 +1,5 @@
 import { BrowserRouter, Route, Routes } from "react-router";
-import Home from "../pages/home/Home";
-import Room from "../pages/room/Room";
+import { Home, Room } from "@/pages";
 
 export default function Router() {
   return (

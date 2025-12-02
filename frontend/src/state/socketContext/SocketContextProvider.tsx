@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { SocketContext } from "./socketContext";
-import { config } from "../../config";
+import { config } from "@/config";
 
 type SocketContextProviderProps = {
   children: ReactNode;
