@@ -22,6 +22,7 @@ const (
 	RoomJoined      ServerEventType = "room_joined"
 	RoomLeft        ServerEventType = "room_left"
 	RoomReconnected ServerEventType = "room_reconnected"
+	InvalidToken	ServerEventType = "invalid_token"
 	MessageReceived ServerEventType = "message_received"
 	Error           ServerEventType = "error"
 )
@@ -75,6 +76,10 @@ func NewServerEvent(eventType ServerEventType, data any) ServerEvent {
 		EventType: eventType,
 		Data:      data,
 	}
+}
+
+type TokenData struct {
+	Token string `json:"token"`
 }
 
 type ErrorEventData struct {

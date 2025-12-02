@@ -7,6 +7,62 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// Helper functions for DRY event handling
+
+// sendEvent creates and sends a server event to a specific client
+func sendEvent(eventType ServerEventType, data any, ws *websocket.Conn) error {
+	event := NewServerEvent(eventType, data)
+	msg, err := NewClientMessage(ws, event)
+	if err != nil {
+		return fmt.Errorf("creating client message: %w", err)
+	}
+	Messages <- msg
+	return nil
+}
+
+// sendEventToRoom creates and sends a server event to all clients in a room
+func sendEventToRoom(eventType ServerEventType, data any, roomName string) error {
+	event := NewServerEvent(eventType, data)
+	msg, err := NewRoomMessage(roomName, event)
+	if err != nil {
+		return fmt.Errorf("creating room message: %w", err)
+	}
+	Messages <- msg
+	return nil
+}
+
+// sendMultipleEvents sends multiple events to a client in sequence
+func sendMultipleEvents(events []ServerEvent, ws *websocket.Conn) error {
+	for _, event := range events {
+		msg, err := NewClientMessage(ws, event)
+		if err != nil {
+			return fmt.Errorf("creating client message: %w", err)
+		}
+		Messages <- msg
+	}
+	return nil
+}
+
+// validateEventData checks if required fields are not empty
+func validateEventData(fields map[string]string) error {
+	for fieldName, value := range fields {
+		if value == "" {
+			return fmt.Errorf("missing %s", fieldName)
+		}
+	}
+	return nil
+}
+
+// assertEventData performs type assertion and returns typed data
+func assertEventData[T any](clientEventData any, eventType ClientEventType) (T, error) {
+	var zero T
+	data, ok := clientEventData.(T)
+	if !ok {
+		return zero, fmt.Errorf("invalid event data type for %s", eventType)
+	}
+	return data, nil
+}
+
 func getRoom(roomName string) (*entities.Room, error) {
 	room, exists := Rooms[roomName]
 	if !exists {
@@ -17,15 +73,9 @@ func getRoom(roomName string) (*entities.Room, error) {
 
 func SendError(Code, Message string, ws *websocket.Conn) {
 	errorData := ErrorEventData{Code: Code, Message: Message}
-	errorEvent := NewServerEvent(Error, errorData)
-
-	msg, err := NewClientMessage(ws, errorEvent)
-	if err != nil {
-		HandleEventError(err, "creating client message")
-		return
+	if err := sendEvent(Error, errorData, ws); err != nil {
+		HandleEventError(err, "sending error event")
 	}
-
-	Messages <- msg
 }
 
 func HandleEvents(event ClientEvent, ws *websocket.Conn) {
@@ -38,15 +88,17 @@ func HandleEvents(event ClientEvent, ws *websocket.Conn) {
 
 	switch event.EventType {
 	case CreateRoom:
-
-		data, ok := clientEventData.(CreateRoomEventData)
-		if !ok {
-			HandleEventError(fmt.Errorf("invalid event data type for CreateRoom"), "type assertion")
+		data, err := assertEventData[CreateRoomEventData](clientEventData, CreateRoom)
+		if err != nil {
+			HandleEventError(err, "type assertion")
 			return
 		}
 
-		if data.RoomName == "" || data.Username == "" {
-			HandleEventError(fmt.Errorf("missing roomName or username"), "create_room event")
+		if err := validateEventData(map[string]string{
+			"roomName": data.RoomName,
+			"username": data.Username,
+		}); err != nil {
+			HandleEventError(err, "create_room event")
 			return
 		}
 
@@ -56,7 +108,6 @@ func HandleEvents(event ClientEvent, ws *websocket.Conn) {
 		}
 
 		room := entities.NewRoom(data.RoomName)
-
 		Rooms[data.RoomName] = room
 
 		user := entities.NewUser(data.Username, ws)
@@ -64,35 +115,23 @@ func HandleEvents(event ClientEvent, ws *websocket.Conn) {
 
 		TokenToRooms[user.Token] = NewUserRoom(user.Name, room.Name)
 
-		roomCreatedData := RoomCreatedEventData{Token: user.Token, RoomName: data.RoomName}
-		roomCreatedEvent := NewServerEvent(RoomCreated, roomCreatedData)
-		msg1, err := NewClientMessage(ws, roomCreatedEvent)
-		if err != nil {
-			HandleEventError(err, "creating client message for RoomCreatedEvent")
+		if err := SendRoomCreationEvents(user.Token, room.Name, ws); err != nil {
+			HandleEventError(err, "sending room creation events")
 			return
 		}
-
-		roomJoinedData := RoomJoinedEventData{Token: user.Token, RoomName: room.Name}
-		roomJoinedEvent := NewServerEvent(RoomJoined, roomJoinedData)
-		msg2, err := NewClientMessage(ws, roomJoinedEvent)
-		if err != nil {
-			HandleEventError(err, "creating client message for RoomJoinedEvent")
-			return
-		}
-
-		Messages <- msg1
-		Messages <- msg2
 
 	case JoinRoom:
-
-		data, ok := clientEventData.(JoinRoomEventData)
-		if !ok {
-			HandleEventError(fmt.Errorf("invalid event data type for JoinRoom"), "type assertion")
+		data, err := assertEventData[JoinRoomEventData](clientEventData, JoinRoom)
+		if err != nil {
+			HandleEventError(err, "type assertion")
 			return
 		}
 
-		if data.RoomName == "" || data.Username == "" {
-			HandleEventError(fmt.Errorf("missing roomName or username"), "join event")
+		if err := validateEventData(map[string]string{
+			"roomName": data.RoomName,
+			"username": data.Username,
+		}); err != nil {
+			HandleEventError(err, "join event")
 			return
 		}
 
@@ -112,26 +151,23 @@ func HandleEvents(event ClientEvent, ws *websocket.Conn) {
 
 		TokenToRooms[user.Token] = NewUserRoom(user.Name, room.Name)
 
-		roomJoinedData := RoomJoinedEventData{Token: user.Token, RoomName: room.Name}
-		roomJoinedEvent := NewServerEvent(RoomJoined, roomJoinedData)
-
-		msg, err := NewClientMessage(ws, roomJoinedEvent)
-		if err != nil {
-			HandleEventError(err, "creating client message")
+		if err := SendRoomJoined(user.Token, room.Name, ws); err != nil {
+			HandleEventError(err, "sending room joined event")
 			return
 		}
-
-		Messages <- msg
 	case LeaveRoom:
-
-		data, ok := clientEventData.(LeaveRoomEventData)
-		if !ok {
-			HandleEventError(fmt.Errorf("invalid event data type for LeaveRoom"), "type assertion")
+		data, err := assertEventData[LeaveRoomEventData](clientEventData, LeaveRoom)
+		if err != nil {
+			HandleEventError(err, "type assertion")
 			return
 		}
 
-		if data.RoomName == "" || data.Username == "" || data.Token == "" {
-			HandleEventError(fmt.Errorf("missing roomName or username or token"), "leave event")
+		if err := validateEventData(map[string]string{
+			"roomName": data.RoomName,
+			"username": data.Username,
+			"token":    data.Token,
+		}); err != nil {
+			HandleEventError(err, "leave event")
 			return
 		}
 
@@ -143,27 +179,22 @@ func HandleEvents(event ClientEvent, ws *websocket.Conn) {
 
 		room.RemoveUser(data.Token)
 
-		roomLeftData := RoomLeftEventData{Token: data.Token, RoomName: data.RoomName}
-		roomLeftEvent := NewServerEvent(RoomLeft, roomLeftData)
-
-		msg, err := NewClientMessage(ws, roomLeftEvent)
-		if err != nil {
-			HandleEventError(err, "creating client message")
+		if err := SendRoomLeft(data.Token, data.RoomName, ws); err != nil {
+			HandleEventError(err, "sending room left event")
 			return
 		}
-
-		Messages <- msg
 	case ReconnectRoom:
-
-		data, ok := clientEventData.(ReconnectRoomEventData)
-		if !ok {
-			HandleEventError(fmt.Errorf("invalid event data type for ReconnectRoom"), "type assertion")
+		data, err := assertEventData[ReconnectRoomEventData](clientEventData, ReconnectRoom)
+		if err != nil {
+			HandleEventError(err, "type assertion")
 			return
 		}
 
 		userRoom, ok := TokenToRooms[data.Token]
 		if !ok {
-			fmt.Println("Invalid token:", data.Token)
+			if err := SendInvalidToken(data.Token, ws); err != nil {
+				HandleEventError(err, "sending invalid token event")
+			}
 			return
 		}
 
@@ -175,31 +206,31 @@ func HandleEvents(event ClientEvent, ws *websocket.Conn) {
 
 		user := room.GetUserByToken(data.Token)
 		if user == nil {
-			SendError("InvalidToken", "Token is invalid", ws)
+			if err := SendInvalidToken(data.Token, ws); err != nil {
+				HandleEventError(err, "sending invalid token event")
+			}
+			return
 		}
 
 		user.Conn = ws
-		roomReconnectedData := RoomReconnectedEventData{Token: user.Token, RoomName: room.Name, Username: user.Name}
-		roomJoinedEvent := NewServerEvent(RoomReconnected, roomReconnectedData)
-
-		msg, err := NewClientMessage(ws, roomJoinedEvent)
-		if err != nil {
-			HandleEventError(err, "creating client message")
+		if err := SendRoomReconnected(user.Token, room.Name, user.Name, ws); err != nil {
+			HandleEventError(err, "sending room reconnected event")
 			return
 		}
-
-		Messages <- msg
 
 	case SendMessage:
-
-		data, ok := clientEventData.(SendMessageEventData)
-		if !ok {
-			HandleEventError(fmt.Errorf("invalid event data type for SendMessage"), "type assertion")
+		data, err := assertEventData[SendMessageEventData](clientEventData, SendMessage)
+		if err != nil {
+			HandleEventError(err, "type assertion")
 			return
 		}
 
-		if data.RoomName == "" || data.Username == "" || data.Body == "" {
-			HandleEventError(fmt.Errorf("missing roomName, username, or body"), "message event")
+		if err := validateEventData(map[string]string{
+			"roomName": data.RoomName,
+			"username": data.Username,
+			"body":     data.Body,
+		}); err != nil {
+			HandleEventError(err, "message event")
 			return
 		}
 
@@ -209,15 +240,10 @@ func HandleEvents(event ClientEvent, ws *websocket.Conn) {
 			return
 		}
 
-		messageReceivedData := MessageReceivedEventData{Username: data.Username, Body: data.Body}
-		messageReceivedEvent := NewServerEvent(MessageReceived, messageReceivedData)
-		msg, err := NewRoomMessage(room.Name, messageReceivedEvent)
-		if err != nil {
-			HandleEventError(err, "creating room message")
+		if err := BroadcastMessage(data.Username, data.Body, room.Name); err != nil {
+			HandleEventError(err, "broadcasting message")
 			return
 		}
-
-		Messages <- msg
 	default:
 		HandleEventError(fmt.Errorf("unknown event type: %s", event.EventType), "handling event")
 
