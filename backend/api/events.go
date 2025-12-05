@@ -3,6 +3,8 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/SandroK0/chat-rooms/backend/pkg/logger"
 )
 
 type ClientEventType string
@@ -22,7 +24,7 @@ const (
 	RoomJoined      ServerEventType = "room_joined"
 	RoomLeft        ServerEventType = "room_left"
 	RoomReconnected ServerEventType = "room_reconnected"
-	InvalidToken	ServerEventType = "invalid_token"
+	InvalidToken    ServerEventType = "invalid_token"
 	MessageReceived ServerEventType = "message_received"
 	Error           ServerEventType = "error"
 )
@@ -57,6 +59,7 @@ type LeaveRoomEventData struct {
 	CommonEventData
 	Token string `json:"token"`
 }
+
 type CreateRoomEventData struct {
 	CommonEventData
 }
@@ -113,39 +116,31 @@ type RoomReconnectedEventData struct {
 	Username string `json:"username"`
 }
 
-func UnmarshalClientEventData(event ClientEvent) (any, error) {
-	switch event.EventType {
-	case CreateRoom:
-		var data CreateRoomEventData
-		if err := json.Unmarshal(event.Data, &data); err != nil {
-			return nil, err
-		}
-		return data, nil
-	case JoinRoom:
-		var data JoinRoomEventData
-		if err := json.Unmarshal(event.Data, &data); err != nil {
-			return nil, err
-		}
-		return data, nil
-	case LeaveRoom:
-		var data LeaveRoomEventData
-		if err := json.Unmarshal(event.Data, &data); err != nil {
-			return nil, err
-		}
-		return data, nil
-	case ReconnectRoom:
-		var data ReconnectRoomEventData
-		if err := json.Unmarshal(event.Data, &data); err != nil {
-			return nil, err
-		}
-		return data, nil
-	case SendMessage:
-		var data SendMessageEventData
-		if err := json.Unmarshal(event.Data, &data); err != nil {
-			return nil, err
-		}
-		return data, nil
-	default:
+// ClientEventData interface
+type ClientEventData interface{}
+
+// Factory function type
+type EventDataFactory func() ClientEventData
+
+// Map event types to their factories
+var eventFactories = map[ClientEventType]EventDataFactory{
+	CreateRoom:    func() ClientEventData { return &CreateRoomEventData{} },
+	JoinRoom:      func() ClientEventData { return &JoinRoomEventData{} },
+	LeaveRoom:     func() ClientEventData { return &LeaveRoomEventData{} },
+	ReconnectRoom: func() ClientEventData { return &ReconnectRoomEventData{} },
+	SendMessage:   func() ClientEventData { return &SendMessageEventData{} },
+}
+
+func UnmarshalClientEventData(event ClientEvent) (ClientEventData, error) {
+	factory, exists := eventFactories[event.EventType]
+	if !exists {
 		return nil, fmt.Errorf("unknown event type: %s", event.EventType)
 	}
+	logger.Infof("Unmarshaling event of type: %s", event.EventType)
+	eventData := factory()
+	if err := json.Unmarshal(event.Data, eventData); err != nil {
+		return nil, err
+	}
+
+	return eventData, nil
 }

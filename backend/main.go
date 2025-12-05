@@ -5,10 +5,17 @@ import (
 	"net/http"
 
 	"github.com/SandroK0/chat-rooms/backend/api"
+	"github.com/SandroK0/chat-rooms/backend/pkg/logger"
 	"github.com/rs/cors"
 )
 
 func main() {
+	// Initialize logger
+	if err := logger.InitLogger(); err != nil {
+		log.Fatalf("Failed to initialize logger: %v", err)
+	}
+
+	log.Println("Starting chat rooms backend server...")
 
 	mux := http.NewServeMux()
 
@@ -18,6 +25,6 @@ func main() {
 	go api.HandleMessages()
 
 	handler := cors.Default().Handler(mux)
-	log.Println("Starting server on :8080...")
+	log.Println("Server starting on :8080...")
 	log.Fatal(http.ListenAndServe(":8080", handler))
 }
