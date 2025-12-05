@@ -3,8 +3,6 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-
-	"github.com/SandroK0/chat-rooms/backend/pkg/logger"
 )
 
 type ClientEventType string
@@ -42,13 +40,9 @@ func NewClientEvent(msg []byte) (*ClientEvent, error) {
 	return &event, nil
 }
 
-type CommonEventData struct {
+type JoinRoomEventData struct {
 	RoomName string `json:"roomName"`
 	Username string `json:"username"`
-}
-
-type JoinRoomEventData struct {
-	CommonEventData
 }
 
 type ReconnectRoomEventData struct {
@@ -56,17 +50,20 @@ type ReconnectRoomEventData struct {
 }
 
 type LeaveRoomEventData struct {
-	CommonEventData
-	Token string `json:"token"`
+	RoomName string `json:"roomName"`
+	Username string `json:"username"`
+	Token    string `json:"token"`
 }
 
 type CreateRoomEventData struct {
-	CommonEventData
+	RoomName string `json:"roomName"`
+	Username string `json:"username"`
 }
 
 type SendMessageEventData struct {
-	CommonEventData
-	Body string `json:"body"`
+	RoomName string `json:"roomName"`
+	Username string `json:"username"`
+	Body     string `json:"body"`
 }
 
 type ServerEvent struct {
@@ -116,14 +113,11 @@ type RoomReconnectedEventData struct {
 	Username string `json:"username"`
 }
 
-// ClientEventData interface
 type ClientEventData interface{}
 
-// Factory function type
-type EventDataFactory func() ClientEventData
+type ClientEventDataFactory func() ClientEventData
 
-// Map event types to their factories
-var eventFactories = map[ClientEventType]EventDataFactory{
+var clientEventFactories = map[ClientEventType]ClientEventDataFactory{
 	CreateRoom:    func() ClientEventData { return &CreateRoomEventData{} },
 	JoinRoom:      func() ClientEventData { return &JoinRoomEventData{} },
 	LeaveRoom:     func() ClientEventData { return &LeaveRoomEventData{} },
@@ -132,11 +126,10 @@ var eventFactories = map[ClientEventType]EventDataFactory{
 }
 
 func UnmarshalClientEventData(event ClientEvent) (ClientEventData, error) {
-	factory, exists := eventFactories[event.EventType]
+	factory, exists := clientEventFactories[event.EventType]
 	if !exists {
 		return nil, fmt.Errorf("unknown event type: %s", event.EventType)
 	}
-	logger.Infof("Unmarshaling event of type: %s", event.EventType)
 	eventData := factory()
 	if err := json.Unmarshal(event.Data, eventData); err != nil {
 		return nil, err

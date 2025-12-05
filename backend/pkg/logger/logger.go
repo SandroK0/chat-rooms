@@ -7,13 +7,7 @@ import (
 	"path/filepath"
 )
 
-var (
-	InfoLogger    *log.Logger
-	WarningLogger *log.Logger
-	ErrorLogger   *log.Logger
-)
-
-func InitLogger() error {
+func SetupFileLogging() error {
 	// Create logs directory if it doesn't exist
 	logsDir := "logs"
 	if err := os.MkdirAll(logsDir, 0755); err != nil {
@@ -30,40 +24,12 @@ func InitLogger() error {
 		return err
 	}
 
-	// Create multi-writers for both file and console output
-	infoWriter := io.MultiWriter(os.Stdout, logFile)
-	warningWriter := io.MultiWriter(os.Stdout, logFile)
-	errorWriter := io.MultiWriter(os.Stderr, logFile)
+	// Set log output to both file and console
+	multiWriter := io.MultiWriter(os.Stdout, logFile)
+	log.SetOutput(multiWriter)
 
-	// Initialize loggers with different prefixes
-	InfoLogger = log.New(infoWriter, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
-	WarningLogger = log.New(warningWriter, "WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
-	ErrorLogger = log.New(errorWriter, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
+	// Set log format with timestamp and file location
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	return nil
-}
-
-// Convenience functions
-func Info(v ...interface{}) {
-	InfoLogger.Println(v...)
-}
-
-func Infof(format string, v ...interface{}) {
-	InfoLogger.Printf(format, v...)
-}
-
-func Warning(v ...interface{}) {
-	WarningLogger.Println(v...)
-}
-
-func Warningf(format string, v ...interface{}) {
-	WarningLogger.Printf(format, v...)
-}
-
-func Error(v ...interface{}) {
-	ErrorLogger.Println(v...)
-}
-
-func Errorf(format string, v ...interface{}) {
-	ErrorLogger.Printf(format, v...)
 }

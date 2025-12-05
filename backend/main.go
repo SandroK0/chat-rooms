@@ -10,9 +10,9 @@ import (
 )
 
 func main() {
-	// Initialize logger
-	if err := logger.InitLogger(); err != nil {
-		log.Fatalf("Failed to initialize logger: %v", err)
+	// Setup file logging
+	if err := logger.SetupFileLogging(); err != nil {
+		log.Fatalf("Failed to setup file logging: %v", err)
 	}
 
 	log.Println("Starting chat rooms backend server...")
