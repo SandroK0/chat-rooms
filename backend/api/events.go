@@ -8,23 +8,23 @@ import (
 type ClientEventType string
 
 const (
-	CreateRoom    ClientEventType = "create_room"
-	JoinRoom      ClientEventType = "join_room"
-	ReconnectRoom ClientEventType = "reconnect_room"
-	LeaveRoom     ClientEventType = "leave_room"
-	SendMessage   ClientEventType = "send_message"
+	CreateRoom      ClientEventType = "create_room"
+	JoinRoom        ClientEventType = "join_room"
+	ReconnectRoom   ClientEventType = "reconnect_room"
+	LeaveRoom       ClientEventType = "leave_room"
+	SendChatMessage ClientEventType = "send_chat_message"
 )
 
 type ServerEventType string
 
 const (
-	RoomCreated     ServerEventType = "room_created"
-	RoomJoined      ServerEventType = "room_joined"
-	RoomLeft        ServerEventType = "room_left"
-	RoomReconnected ServerEventType = "room_reconnected"
-	InvalidToken    ServerEventType = "invalid_token"
-	MessageReceived ServerEventType = "message_received"
-	Error           ServerEventType = "error"
+	RoomCreated         ServerEventType = "room_created"
+	RoomJoined          ServerEventType = "room_joined"
+	RoomLeft            ServerEventType = "room_left"
+	RoomReconnected     ServerEventType = "room_reconnected"
+	InvalidToken        ServerEventType = "invalid_token"
+	ChatMessageReceived ServerEventType = "chat_message_received"
+	Error               ServerEventType = "error"
 )
 
 type ClientEvent struct {
@@ -60,7 +60,7 @@ type CreateRoomEventData struct {
 	Username string `json:"username"`
 }
 
-type SendMessageEventData struct {
+type SendChatMessageEventData struct {
 	RoomName string `json:"roomName"`
 	Username string `json:"username"`
 	Body     string `json:"body"`
@@ -97,7 +97,7 @@ type RoomLeftEventData struct {
 	RoomName string `json:"roomName"`
 }
 
-type MessageReceivedEventData struct {
+type ChatMessageReceivedEventData struct {
 	Username string `json:"username"`
 	Body     string `json:"body"`
 }
@@ -118,11 +118,11 @@ type ClientEventData interface{}
 type ClientEventDataFactory func() ClientEventData
 
 var clientEventFactories = map[ClientEventType]ClientEventDataFactory{
-	CreateRoom:    func() ClientEventData { return &CreateRoomEventData{} },
-	JoinRoom:      func() ClientEventData { return &JoinRoomEventData{} },
-	LeaveRoom:     func() ClientEventData { return &LeaveRoomEventData{} },
-	ReconnectRoom: func() ClientEventData { return &ReconnectRoomEventData{} },
-	SendMessage:   func() ClientEventData { return &SendMessageEventData{} },
+	CreateRoom:      func() ClientEventData { return &CreateRoomEventData{} },
+	JoinRoom:        func() ClientEventData { return &JoinRoomEventData{} },
+	LeaveRoom:       func() ClientEventData { return &LeaveRoomEventData{} },
+	ReconnectRoom:   func() ClientEventData { return &ReconnectRoomEventData{} },
+	SendChatMessage: func() ClientEventData { return &SendChatMessageEventData{} },
 }
 
 func UnmarshalClientEventData(event ClientEvent) (ClientEventData, error) {

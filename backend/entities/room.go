@@ -1,6 +1,8 @@
 package entities
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Room struct {
 	Name  string
@@ -37,4 +39,8 @@ func (r *Room) RemoveUser(token string) {
 			return
 		}
 	}
+}
+
+func (r *Room) IsEmpty() bool {
+	return len(r.Users) == 0
 }

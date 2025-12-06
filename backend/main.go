@@ -4,8 +4,9 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/SandroK0/chat-rooms/backend/api"
-	"github.com/SandroK0/chat-rooms/backend/pkg/logger"
+	"chat-rooms-backend/api"
+	"chat-rooms-backend/pkg/logger"
+
 	"github.com/rs/cors"
 )
 

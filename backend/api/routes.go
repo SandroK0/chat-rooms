@@ -2,6 +2,8 @@ package api
 
 import (
 	"net/http"
+
+	"chat-rooms-backend/state"
 )
 
 func GetRoomsHandler(w http.ResponseWriter, r *http.Request) {
@@ -9,5 +11,5 @@ func GetRoomsHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	WriteJsonHTTP(Rooms, w)
+	WriteJsonHTTP(state.Rooms, w)
 }
